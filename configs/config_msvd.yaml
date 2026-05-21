@@ -1,0 +1,85 @@
+# ==========================================
+# 1. 数据相关配置 (Data Configuration)
+# ==========================================
+data:
+  # 预先提取好的特征矩阵(.npy)存放路径 (包含 ResNet, R3D, YOLO特征)
+  feature_dir: "data/MSVD/features/"        
+  
+  # 原始 MSVD 视频与文字描述匹配的标注文件路径
+  raw_annotation: "data/MSVD/raw_msvd.json" 
+  
+  # 数据预处理脚本 (prepare_msvd_dataset.py) 运行后，生成的数据拆分文件存放目录
+  processed_dir: "data/MSVD/"               
+  
+  # 文本清洗后生成的数字-单词映射词典路径
+  vocab_path: "data/MSVD/vocab.json"        
+  
+  # 设定的最大句子长度。超过26个词的句子会被截断，不足26个词的会用 <PAD> (0) 补齐
+  max_seq_len: 26
+
+# ==========================================
+# 2. 模型架构参数 (Model Hyperparameters)
+# ==========================================
+model:
+  # 词表总大小。虽然这里写了 5294，但代码在运行时通常会自动读取 vocab.json 的实际长度来覆盖它
+  vocab_size: 5294          
+  
+  # 模型内部隐藏层的特征维度。无论是图像特征还是词向量，进入 Transformer 前统一映射为 512 维
+  feature_dim: 512
+  
+  # 从每个视频中均匀采样的总帧数，对应时间轴长度 T
+  num_frames: 16
+  
+  # 每帧画面中使用 YOLO 提取的最显著的局部目标(ROI)的数量，对应图卷积网络中的节点数 N
+  num_objects: 5             
+  
+  # SCD (语义概念检测) 模块需要预测的高频核心语义词汇的数量
+  num_semantic_concepts: 300 
+  
+  # Transformer 解码器 (Decoder) 堆叠的层数
+  transformer_layers: 6
+  
+  # Transformer 中多头注意力机制 (Multi-Head Attention) 的“头”数
+  transformer_heads: 8
+  
+  # TSI 模块(时空图交互)中的空间距离阈值。物体中心点距离小于此值才会在图网络中连一条边
+  mu: 0.5                    
+
+# ==========================================
+# 3. 训练流程超参数 (Training Settings)
+# ==========================================
+train:
+  # 物理 Batch Size：每次塞进显存的视频数量。Mac M4 统一设为 16 以防显存爆掉
+  batch_size: 16             
+  
+  # 梯度累积步数 (Gradient Accumulation Steps)
+  # 绝妙的设计：16(物理批次) * 4(累积步数) = 64。通过这种方式在小显存上完美模拟了原论文要求的大 Batch Size (64)
+  grad_accum_steps: 4        
+  
+  # 整个训练集会被模型反复学习多少遍
+  epochs: 50
+  
+  # Adam 优化器的学习率 (Learning Rate)，决定模型权重更新的步子大小
+  lr: 0.0001
+  
+  # 损失函数中的“长度惩罚系数”。值越大，模型越不敢偷懒生成过短的句子
+  beta: 0.4                  
+  
+  # 指定训练设备。mps 代表 Mac 独有的 Metal 芯片加速 (对标 N 卡的 cuda)
+  device: "mps"              
+  
+  # 数据加载器使用的子进程数。在 Mac/Windows 上多进程容易导致死锁(假死)，所以强制设为 0 (仅使用主进程)
+  num_workers: 0             
+
+# ==========================================
+# 4. 推理/测试相关参数 (Testing Settings)
+# ==========================================
+test:
+  # 束搜索 (Beam Search) 的宽度。虽然你目前的 test.py 用的是 Greedy Search，但这为未来升级高级解码算法预留了参数
+  beam_size: 6
+  
+  # <BOS> (Begin of Sentence) 句子开头特殊占位符在词表中的固定索引编号
+  bos_token: 1
+  
+  # <EOS> (End of Sentence) 句子结尾特殊占位符在词表中的固定索引编号
+  eos_token: 2
