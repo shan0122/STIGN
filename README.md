@@ -1,4 +1,4 @@
-# STGIN - MSVD Reproduction (Mac M4 Optimized)
+# STGIN
 
 ## 1. Setup
 ```bash
